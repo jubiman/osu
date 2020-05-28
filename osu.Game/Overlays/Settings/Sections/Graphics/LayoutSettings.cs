@@ -27,12 +27,14 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
 
         private Bindable<ScalingMode> scalingMode;
         private Bindable<Size> sizeFullscreen;
+        private Bindable<Size> windowedSize;
         private readonly IBindableList<WindowMode> windowModes = new BindableList<WindowMode>();
 
         [Resolved]
         private OsuGameBase game { get; set; }
 
         private SettingsDropdown<Size> resolutionDropdown;
+        private SettingsDropdown<Size> windowSizeDropdown;
         private SettingsDropdown<WindowMode> windowModeDropdown;
 
         private Bindable<float> scalingPositionX;
@@ -47,6 +49,7 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
         {
             scalingMode = osuConfig.GetBindable<ScalingMode>(OsuSetting.Scaling);
             sizeFullscreen = config.GetBindable<Size>(FrameworkSetting.SizeFullscreen);
+            windowedSize = config.GetBindable<Size>(FrameworkSetting.WindowedSize);
             scalingSizeX = osuConfig.GetBindable<float>(OsuSetting.ScalingSizeX);
             scalingSizeY = osuConfig.GetBindable<float>(OsuSetting.ScalingSizeY);
             scalingPositionX = osuConfig.GetBindable<float>(OsuSetting.ScalingPositionX);
@@ -56,6 +59,7 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
                 windowModes.BindTo(host.Window.SupportedWindowModes);
 
             Container resolutionSettingsContainer;
+            Container sizeSettingsContainer;
 
             Children = new Drawable[]
             {
@@ -66,6 +70,11 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
                     ItemSource = windowModes,
                 },
                 resolutionSettingsContainer = new Container
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y
+                },
+                sizeSettingsContainer = new Container
                 {
                     RelativeSizeAxes = Axes.X,
                     AutoSizeAxes = Axes.Y
@@ -140,15 +149,33 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
                     Bindable = sizeFullscreen
                 };
 
+                sizeSettingsContainer.Child = windowSizeDropdown = new ResolutionSettingsDropdown
+                {
+                    LabelText = "Window size",
+                    ShowsDefaultIndicator = false,
+                    Items = resolutions,
+                    Bindable = windowedSize
+                };
+
                 windowModeDropdown.Bindable.BindValueChanged(mode =>
                 {
                     if (mode.NewValue == WindowMode.Fullscreen)
                     {
                         resolutionDropdown.Show();
+                        windowSizeDropdown.Hide();
                         sizeFullscreen.TriggerChange();
                     }
-                    else
+                    else if (mode.NewValue == WindowMode.Windowed)
+                    {
+                        windowSizeDropdown.Show();
                         resolutionDropdown.Hide();
+                        windowedSize.TriggerChange();
+                    }
+                    else
+                    {
+                        resolutionDropdown.Hide();
+                        windowSizeDropdown.Hide();
+                    }
                 }, true);
             }
 
