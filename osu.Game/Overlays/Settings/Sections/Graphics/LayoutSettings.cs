@@ -161,15 +161,16 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
                 {
                     resolutionDropdown.FadeTo(mode.NewValue == WindowMode.Fullscreen ? 1 : 0);
                     windowSizeDropdown.FadeTo(mode.NewValue == WindowMode.Windowed ? 1 : 0);
-                    
-                    // This might be possible with a switch() statement
-                    if (mode.NewValue == WindowMode.Fullscreen)
+
+                    switch (mode.NewValue)
                     {
-                        sizeFullscreen.TriggerChange();
-                    }
-                    else if (mode.NewValue == WindowMode.Windowed)
-                    {
-                        windowedSize.TriggerChange();
+                        case WindowMode.Fullscreen:
+                            sizeFullscreen.TriggerChange();
+                            break;
+
+                        case WindowMode.Windowed:
+                            windowedSize.TriggerChange();
+                            break;
                     }
                 }, true);
             }
