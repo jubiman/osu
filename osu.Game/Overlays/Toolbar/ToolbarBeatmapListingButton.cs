@@ -2,20 +2,18 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using osu.Framework.Allocation;
-using osu.Game.Graphics;
+using osu.Framework.Graphics;
 using osu.Game.Input.Bindings;
 
 namespace osu.Game.Overlays.Toolbar
 {
     public class ToolbarBeatmapListingButton : ToolbarOverlayToggleButton
     {
+        protected override Anchor TooltipAnchor => Anchor.TopRight;
+
         public ToolbarBeatmapListingButton()
         {
-            SetIcon(OsuIcon.ChevronDownCircle);
-            TooltipMain = "Beatmap listing";
-            TooltipSub = "Browse for new beatmaps";
-
-            Hotkey = GlobalAction.ToggleDirect;
+            Hotkey = GlobalAction.ToggleBeatmapListing;
         }
 
         [BackgroundDependencyLoader(true)]

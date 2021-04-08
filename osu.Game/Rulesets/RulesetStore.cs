@@ -96,11 +96,11 @@ namespace osu.Game.Rulesets
                 context.SaveChanges();
 
                 // add any other modes
+                var existingRulesets = context.RulesetInfo.ToList();
+
                 foreach (var r in instances.Where(r => !(r is ILegacyRuleset)))
                 {
-                    // todo: StartsWith can be changed to Equals on 2020-11-08
-                    // This is to give users enough time to have their database use new abbreviated info).
-                    if (context.RulesetInfo.FirstOrDefault(ri => ri.InstantiationInfo.StartsWith(r.RulesetInfo.InstantiationInfo)) == null)
+                    if (existingRulesets.FirstOrDefault(ri => ri.InstantiationInfo.Equals(r.RulesetInfo.InstantiationInfo, StringComparison.Ordinal)) == null)
                         context.RulesetInfo.Add(r.RulesetInfo);
                 }
 
@@ -173,7 +173,7 @@ namespace osu.Game.Rulesets
         {
             var filename = Path.GetFileNameWithoutExtension(file);
 
-            if (loadedAssemblies.Values.Any(t => t.Namespace == filename))
+            if (loadedAssemblies.Values.Any(t => Path.GetFileNameWithoutExtension(t.Assembly.Location) == filename))
                 return;
 
             try
@@ -189,6 +189,11 @@ namespace osu.Game.Rulesets
         private void addRuleset(Assembly assembly)
         {
             if (loadedAssemblies.ContainsKey(assembly))
+                return;
+
+            // the same assembly may be loaded twice in the same AppDomain (currently a thing in certain Rider versions https://youtrack.jetbrains.com/issue/RIDER-48799).
+            // as a failsafe, also compare by FullName.
+            if (loadedAssemblies.Any(a => a.Key.FullName == assembly.FullName))
                 return;
 
             try

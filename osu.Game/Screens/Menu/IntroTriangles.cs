@@ -39,12 +39,12 @@ namespace osu.Game.Screens.Menu
 
         private BackgroundScreenDefault background;
 
-        private SampleChannel welcome;
+        private Sample welcome;
 
         [BackgroundDependencyLoader]
         private void load()
         {
-            if (MenuVoice.Value && !UsingThemedIntro)
+            if (MenuVoice.Value)
                 welcome = audio.Samples.Get(@"Intro/welcome");
         }
 
@@ -64,7 +64,8 @@ namespace osu.Game.Screens.Menu
                 }, t =>
                 {
                     AddInternal(t);
-                    welcome?.Play();
+                    if (!UsingThemedIntro)
+                        welcome?.Play();
 
                     StartTrack();
                 });
@@ -169,7 +170,7 @@ namespace osu.Game.Screens.Menu
 
                 rulesets.Hide();
                 lazerLogo.Hide();
-                background.Hide();
+                background.ApplyToBackground(b => b.Hide());
 
                 using (BeginAbsoluteSequence(0, true))
                 {
@@ -230,7 +231,8 @@ namespace osu.Game.Screens.Menu
                             lazerLogo.Dispose(); // explicit disposal as we are pushing a new screen and the expire may not get run.
 
                             logo.FadeIn();
-                            background.FadeIn();
+
+                            background.ApplyToBackground(b => b.Show());
 
                             game.Add(new GameWideFlash());
 

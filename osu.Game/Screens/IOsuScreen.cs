@@ -6,6 +6,7 @@ using osu.Framework.Screens;
 using osu.Game.Beatmaps;
 using osu.Game.Overlays;
 using osu.Game.Rulesets;
+using osu.Game.Users;
 
 namespace osu.Game.Screens
 {
@@ -39,9 +40,14 @@ namespace osu.Game.Screens
         bool HideOverlaysOnEnter { get; }
 
         /// <summary>
-        /// Whether overlays should be able to be opened once this screen is entered or resumed.
+        /// Whether overlays should be able to be opened when this screen is current.
         /// </summary>
-        OverlayActivation InitialOverlayActivationMode { get; }
+        IBindable<OverlayActivation> OverlayActivationMode { get; }
+
+        /// <summary>
+        /// The current <see cref="UserActivity"/> for this screen.
+        /// </summary>
+        IBindable<UserActivity> Activity { get; }
 
         /// <summary>
         /// The amount of parallax to be applied while this screen is displayed.

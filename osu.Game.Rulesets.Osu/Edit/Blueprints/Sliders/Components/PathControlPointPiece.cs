@@ -2,16 +2,22 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Cursor;
+using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Input.Events;
+using osu.Framework.Utils;
 using osu.Game.Graphics;
 using osu.Game.Rulesets.Edit;
 using osu.Game.Rulesets.Objects;
+using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Screens.Edit;
 using osuTK;
@@ -23,9 +29,10 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
     /// <summary>
     /// A visualisation of a single <see cref="PathControlPoint"/> in a <see cref="Slider"/>.
     /// </summary>
-    public class PathControlPointPiece : BlueprintPiece<Slider>
+    public class PathControlPointPiece : BlueprintPiece<Slider>, IHasTooltip
     {
         public Action<PathControlPointPiece, MouseButtonEvent> RequestSelection;
+        public List<PathControlPoint> PointsInSegment;
 
         public readonly BindableBool IsSelected = new BindableBool();
         public readonly PathControlPoint ControlPoint;
@@ -44,12 +51,19 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
         private OsuColour colours { get; set; }
 
         private IBindable<Vector2> sliderPosition;
+        private IBindable<float> sliderScale;
         private IBindable<Vector2> controlPointPosition;
 
         public PathControlPointPiece(Slider slider, PathControlPoint controlPoint)
         {
             this.slider = slider;
             ControlPoint = controlPoint;
+
+            slider.Path.Version.BindValueChanged(_ =>
+            {
+                PointsInSegment = slider.Path.PointsInSegment(ControlPoint);
+                updatePathType();
+            }, runOnceImmediately: true);
 
             controlPoint.Type.BindValueChanged(_ => updateMarkerDisplay());
 
@@ -69,13 +83,13 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
                         {
                             Anchor = Anchor.Centre,
                             Origin = Anchor.Centre,
-                            Size = new Vector2(10),
+                            Size = new Vector2(20),
                         },
                         markerRing = new CircularContainer
                         {
                             Anchor = Anchor.Centre,
                             Origin = Anchor.Centre,
-                            Size = new Vector2(14),
+                            Size = new Vector2(28),
                             Masking = true,
                             BorderThickness = 2,
                             BorderColour = Color4.White,
@@ -101,6 +115,9 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
 
             controlPointPosition = ControlPoint.Position.GetBoundCopy();
             controlPointPosition.BindValueChanged(_ => updateMarkerDisplay());
+
+            sliderScale = slider.ScaleBindable.GetBoundCopy();
+            sliderScale.BindValueChanged(_ => updateMarkerDisplay());
 
             IsSelected.BindValueChanged(_ => updateMarkerDisplay());
 
@@ -143,6 +160,9 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
 
         protected override bool OnClick(ClickEvent e) => RequestSelection != null;
 
+        private Vector2 dragStartPosition;
+        private PathType? dragPathType;
+
         protected override bool OnDragStart(DragStartEvent e)
         {
             if (RequestSelection == null)
@@ -150,6 +170,9 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
 
             if (e.Button == MouseButton.Left)
             {
+                dragStartPosition = ControlPoint.Position.Value;
+                dragPathType = PointsInSegment[0].Type.Value;
+
                 changeHandler?.BeginChange();
                 return true;
             }
@@ -174,10 +197,30 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
                     slider.Path.ControlPoints[i].Position.Value -= movementDelta;
             }
             else
-                ControlPoint.Position.Value += e.Delta;
+                ControlPoint.Position.Value = dragStartPosition + (e.MousePosition - e.MouseDownPosition);
+
+            // Maintain the path type in case it got defaulted to bezier at some point during the drag.
+            PointsInSegment[0].Type.Value = dragPathType;
         }
 
         protected override void OnDragEnd(DragEndEvent e) => changeHandler?.EndChange();
+
+        /// <summary>
+        /// Handles correction of invalid path types.
+        /// </summary>
+        private void updatePathType()
+        {
+            if (ControlPoint.Type.Value != PathType.PerfectCurve)
+                return;
+
+            ReadOnlySpan<Vector2> points = PointsInSegment.Select(p => p.Position.Value).ToArray();
+            if (points.Length != 3)
+                return;
+
+            RectangleF boundingBox = PathApproximator.CircularArcBoundingBox(points);
+            if (boundingBox.Width >= 640 || boundingBox.Height >= 480)
+                ControlPoint.Type.Value = PathType.Bezier;
+        }
 
         /// <summary>
         /// Updates the state of the circular control point marker.
@@ -188,12 +231,36 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders.Components
 
             markerRing.Alpha = IsSelected.Value ? 1 : 0;
 
-            Color4 colour = ControlPoint.Type.Value != null ? colours.Red : colours.Yellow;
+            Color4 colour = getColourFromNodeType();
 
             if (IsHovered || IsSelected.Value)
                 colour = colour.Lighten(1);
 
             marker.Colour = colour;
+            marker.Scale = new Vector2(slider.Scale);
         }
+
+        private Color4 getColourFromNodeType()
+        {
+            if (!(ControlPoint.Type.Value is PathType pathType))
+                return colours.Yellow;
+
+            switch (pathType)
+            {
+                case PathType.Catmull:
+                    return colours.Seafoam;
+
+                case PathType.Bezier:
+                    return colours.Pink;
+
+                case PathType.PerfectCurve:
+                    return colours.PurpleDark;
+
+                default:
+                    return colours.Red;
+            }
+        }
+
+        public string TooltipText => ControlPoint.Type.Value.ToString() ?? string.Empty;
     }
 }
